@@ -1,0 +1,174 @@
+:root {
+  --bg: #0d0c0a;
+  --panel: #1a1714;
+  --brass: #b8860b;
+  --copper: #c45c3e;
+  --cream: #f5f0e1;
+  --rivet: #3d3528;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at top, #1a1714 0%, var(--bg) 55%);
+  color: var(--cream);
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+#app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+h1 {
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin: 0 0 0.25rem;
+  font-size: 1.4rem;
+}
+
+.subtitle {
+  color: #9a8f7a;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+}
+
+.panel {
+  background: var(--panel);
+  border: 2px solid var(--rivet);
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+  box-shadow:
+    inset 0 0 0 1px #2a241c,
+    0 4px 24px rgba(0, 0, 0, 0.45);
+  position: relative;
+}
+
+.panel::before,
+.panel::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brass);
+  opacity: 0.5;
+}
+
+.panel::before {
+  top: 8px;
+  left: 8px;
+}
+
+.panel::after {
+  top: 8px;
+  right: 8px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.purses {
+  display: flex;
+  gap: 1.5rem;
+  margin: 0.75rem 0;
+}
+
+.purse strong {
+  color: var(--brass);
+}
+
+label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9a8f7a;
+  margin-bottom: 0.25rem;
+}
+
+input[type="text"],
+select {
+  background: var(--bg);
+  border: 1px solid var(--rivet);
+  color: var(--cream);
+  padding: 0.45rem 0.6rem;
+  border-radius: 4px;
+  min-width: 12rem;
+}
+
+button {
+  background: linear-gradient(180deg, #6b4f1d 0%, #4a3614 100%);
+  border: 1px solid var(--brass);
+  color: var(--cream);
+  padding: 0.5rem 0.9rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+button:hover {
+  border-color: #e8c547;
+}
+
+button.secondary {
+  background: transparent;
+  border-color: var(--copper);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.status {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: #9a8f7a;
+  min-height: 1.2em;
+}
+
+.status.error {
+  color: #e88a6a;
+}
+
+.game-wrap {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+canvas {
+  border: 3px solid var(--rivet);
+  border-radius: 4px;
+  image-rendering: pixelated;
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: #7a7060;
+  margin-top: 0.5rem;
+}
+
+.hidden {
+  display: none !important;
+}
