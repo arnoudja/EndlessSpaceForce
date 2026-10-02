@@ -23,21 +23,62 @@ export interface PlayerState {
   pending_idle_credits: number;
 }
 
+export class ApiRequestError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+  }
+}
+
 async function request<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
-  const res = await fetch(`${API}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-  });
-  const body = await res.json();
-  if (!res.ok) {
-    throw new Error((body as { error?: string }).error ?? res.statusText);
+  let res: Response;
+  try {
+    res = await fetch(`${API}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      },
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Network request failed";
+    throw new ApiRequestError(msg, 0);
   }
+
+  const text = await res.text();
+  let body: unknown = null;
+  if (text.length > 0) {
+    try {
+      body = JSON.parse(text) as unknown;
+    } catch {
+      const snippet = text.length > 160 ? `${text.slice(0, 160)}…` : text;
+      throw new ApiRequestError(
+        snippet || `HTTP ${res.status} ${res.statusText}`,
+        res.status,
+      );
+    }
+  }
+
+  if (!res.ok) {
+    const fromJson =
+      body &&
+      typeof body === "object" &&
+      "error" in body &&
+      typeof (body as { error: unknown }).error === "string"
+        ? (body as { error: string }).error
+        : null;
+    throw new ApiRequestError(
+      fromJson ?? res.statusText ?? `HTTP ${res.status}`,
+      res.status,
+    );
+  }
+
   return body as T;
 }
 

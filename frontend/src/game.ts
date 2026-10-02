@@ -58,6 +58,7 @@ export class Game {
   private elapsed = 0;
   private spawnTimer = 0;
   private fireCooldown = 0;
+  private fireHeld = false;
   private ammoMode: AmmoMode = "basic";
   private basicLeft = 0;
   private vectorLeft = 0;
@@ -92,10 +93,17 @@ export class Game {
   }
 
   /** Test hook: advance simulation without rendering. */
-  tick(dt: number, fireStarter = false) {
-    if (fireStarter) this.fireStarterGun();
+  tick(dt: number, opts?: { fireHeld?: boolean }) {
+    if (opts?.fireHeld) this.fireHeld = true;
     this.update(dt);
   }
+
+  /** Test hook: shots fired this sortie (starter + vector + gattler). */
+  get bulletsFired(): number {
+    return this.shotsFired;
+  }
+
+  private shotsFired = 0;
 
   getDistance(): number {
     return this.distance;
@@ -140,9 +148,14 @@ export class Game {
       e.preventDefault();
       this.keys[k] = down;
     }
-    if (down && e.key === " ") {
+    if (e.key === " ") {
       e.preventDefault();
-      this.tryFire();
+      if (down) {
+        this.fireHeld = true;
+        this.tryFire();
+      } else {
+        this.fireHeld = false;
+      }
     }
     if (down && e.key === "1") {
       e.preventDefault();
@@ -171,6 +184,7 @@ export class Game {
   }
 
   private fireStarterGun() {
+    this.shotsFired += 1;
     this.fireCooldown = 0.22;
     const dmg = 1 + this.upgradeLevel;
     this.bullets.push({
@@ -184,6 +198,7 @@ export class Game {
   }
 
   private fireVectorShot() {
+    this.shotsFired += 1;
     this.fireCooldown = 0.28;
     const dmg = 3 + this.upgradeLevel;
     this.bullets.push({
@@ -197,6 +212,7 @@ export class Game {
   }
 
   private fireGattlerVolley() {
+    this.shotsFired += 1;
     this.fireCooldown = 0.12;
     const dmg = 1 + this.upgradeLevel;
     const speed = 7;
@@ -228,6 +244,9 @@ export class Game {
   private update(dt: number) {
     this.elapsed += dt;
     this.fireCooldown = Math.max(0, this.fireCooldown - dt);
+    if (this.fireHeld) {
+      this.tryFire();
+    }
     const speed = 180;
     if (this.keys.up) this.py -= speed * dt;
     if (this.keys.down) this.py += speed * dt;

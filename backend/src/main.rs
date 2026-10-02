@@ -1,6 +1,6 @@
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, State, rejection::JsonRejection},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -67,8 +67,13 @@ struct LeaveBody {
     kills: i64,
 }
 
+fn default_purse() -> String {
+    "resources".to_string()
+}
+
 #[derive(Debug, Deserialize)]
 struct ConfigureBody {
+    #[serde(default = "default_purse")]
     purse: String,
     weapon_kind: Option<String>,
     buy_basic: Option<i64>,
@@ -96,6 +101,11 @@ enum ApiError {
     NotFound(String),
     Conflict(String),
     Internal(String),
+}
+
+fn parse_json<T>(body: Result<Json<T>, JsonRejection>) -> Result<T, ApiError> {
+    body.map(|Json(inner)| inner)
+        .map_err(|rej| ApiError::BadRequest(rej.body_text()))
 }
 
 impl From<rusqlite::Error> for ApiError {
@@ -240,8 +250,9 @@ async fn health() -> Json<HealthResponse> {
 
 async fn create_player(
     State(state): State<AppState>,
-    Json(body): Json<CreatePlayer>,
+    body: Result<Json<CreatePlayer>, JsonRejection>,
 ) -> Result<Json<PlayerResponse>, ApiError> {
+    let body = parse_json(body)?;
     validate_callsign(&body.callsign)?;
     let callsign = body.callsign.trim().to_string();
     let now = Utc::now().to_rfc3339();
@@ -272,8 +283,9 @@ async fn get_player(
 async fn leave_player(
     State(state): State<AppState>,
     Path(callsign): Path<String>,
-    Json(body): Json<LeaveBody>,
+    body: Result<Json<LeaveBody>, JsonRejection>,
 ) -> Result<Json<PlayerResponse>, ApiError> {
+    let body = parse_json(body)?;
     let conn = state.db.lock().map_err(|e| ApiError::Internal(e.to_string()))?;
     if load_player(&conn, &callsign)?.is_none() {
         return Err(ApiError::NotFound("player not found".into()));
@@ -333,8 +345,9 @@ fn spend_from_purse(row: &PlayerRow, purse: &str, cost: i64) -> Result<(i64, i64
 async fn configure_player(
     State(state): State<AppState>,
     Path(callsign): Path<String>,
-    Json(body): Json<ConfigureBody>,
+    body: Result<Json<ConfigureBody>, JsonRejection>,
 ) -> Result<Json<PlayerResponse>, ApiError> {
+    let body = parse_json(body)?;
     let conn = state.db.lock().map_err(|e| ApiError::Internal(e.to_string()))?;
     let row = load_player(&conn, &callsign)?
         .ok_or_else(|| ApiError::NotFound("player not found".into()))?;
@@ -437,8 +450,9 @@ async fn configure_player(
 async fn run_end(
     State(state): State<AppState>,
     Path(callsign): Path<String>,
-    Json(body): Json<RunEndBody>,
+    body: Result<Json<RunEndBody>, JsonRejection>,
 ) -> Result<Json<PlayerResponse>, ApiError> {
+    let body = parse_json(body)?;
     let conn = state.db.lock().map_err(|e| ApiError::Internal(e.to_string()))?;
     if load_player(&conn, &callsign)?.is_none() {
         return Err(ApiError::NotFound("player not found".into()));

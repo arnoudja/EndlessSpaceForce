@@ -1,4 +1,4 @@
-import { api, type PlayerState } from "./api";
+import { api, ApiRequestError, type PlayerState } from "./api";
 import { Game, type Loadout } from "./game";
 
 const CALLSIGN_KEY = "esf_callsign";
@@ -112,9 +112,13 @@ async function registerOrLoad() {
     try {
       state = await api.createPlayer(cs);
       setStatus(`Registered ${cs}.`);
-    } catch {
-      state = await api.getPlayer(cs);
-      setStatus(`Loaded ${cs}.`);
+    } catch (e) {
+      if (e instanceof ApiRequestError && e.status === 409) {
+        state = await api.getPlayer(cs);
+        setStatus(`Loaded ${cs}.`);
+      } else {
+        throw e;
+      }
     }
     localStorage.setItem(CALLSIGN_KEY, cs);
     renderPurses(state);
@@ -189,10 +193,12 @@ el.btnLaunch.addEventListener("click", () => {
     upgradeLevel: state.player.run_upgrade_level,
   };
   el.gameSection.classList.remove("hidden");
+  el.hangar.setAttribute("inert", "");
   el.btnLaunch.blur();
   game?.stop();
   game = new Game(el.canvas, loadout, async (stats) => {
     el.gameSection.classList.add("hidden");
+    el.hangar.removeAttribute("inert");
     const cs = callsign();
     if (!cs) return;
     try {
