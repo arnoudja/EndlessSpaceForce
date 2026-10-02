@@ -45,7 +45,7 @@ This document describes the **first runnable version** on an Intel Omarchy dev m
 - **Starter gun** (space, mode basic): always available, unlimited, no carry cost. Teaches movement and shooting without economy friction.
 - **Gattler feed** (`basic_rounds` in DB): optional purchased ammo for the Gattler weapon’s triple spread when mode is basic and feed remains.
 - **Vector** (key `2`): heavier shots; consumes `vector_rounds` from carry; blocked when empty (starter gun still works on mode basic).
-- During play the canvas holds keyboard focus; Space uses `preventDefault` so hangar buttons cannot steal fire or relaunch the sortie.
+- During play the canvas holds keyboard focus; the hangar panel is `inert`. Space uses `preventDefault`; while Space is **held**, the game loop fires the starter gun on cooldown (not browser key-repeat).
 
 ### Server owns (source of truth)
 
@@ -161,7 +161,7 @@ Base URL **initial default:** `http://127.0.0.1:8787`
 | POST | `/players/{callsign}/configure` | Body `{ "purse", "weapon_kind"?, "buy_basic"?, "buy_vector"? }` |
 | POST | `/players/{callsign}/run/end` | Body `{ "distance", "kills", "died": bool, "upgrade_level" }` → resources grant, clear upgrade if died |
 
-Errors: `{ "error": "message" }` with 4xx/5xx.
+Errors: `{ "error": "message" }` with 4xx/5xx (including malformed JSON bodies; never plain-text Axum rejections).
 
 CORS: allow dev origin `http://127.0.0.1:5173` (**initial default**).
 
