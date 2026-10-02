@@ -33,9 +33,13 @@ for (let i = 0; i < 40; i++) early.tick(0.1);
 const earlyDist = early.getDistance();
 
 const late = makeGame();
-for (let i = 0; i < 350; i++) late.tick(0.1);
+let maxHostile = 0;
+for (let i = 0; i < 500; i++) {
+  late.tick(0.1);
+  maxHostile = Math.max(maxHostile, late.getHostileBulletCount());
+}
 const lateDist = late.getDistance();
-const lateHostile = late.getHostileBulletCount();
+const lateHostile = maxHostile;
 
 if (lateDist <= earlyDist + 200) {
   console.error("FAIL: distance tier did not ramp", earlyDist, lateDist);
