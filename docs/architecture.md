@@ -38,8 +38,9 @@ This document describes the **first runnable version** on an Intel Omarchy dev m
 ### Client simulates (authoritative for feel, not for economy)
 
 - Craft movement (four cardinal directions), shooting, projectile motion.
-- Enemy spawn from top, difficulty ramp (spawn rate / speed / HP).
-- Collision: damage, enemy kills, distance traveled (vertical progress proxy).
+- Enemies spawn from the top; **~38% strafe horizontally** (bounce at screen edges); others descend only. Some enemies **shoot** copper-red bolts toward the player; bolts and ramming reduce HP. Destruction respawns at checkpoint **inside the sortie**; distance and kills are **not** reset by player firing or by checkpoint death.
+- **Difficulty scales primarily with distance travelled** (`tier ≈ 1 + distance/500`): denser spawns, more shooters, faster enemy fire cadence, tougher HP, occasional double spawns at high tier. Early distance stays forgiving for the free starter gun; later distance punishes sloppy dodging.
+- Collision: player shots vs enemies, enemy shots vs craft, ram damage.
 - Pickup collection → **run weapon upgrade level** (+1 damage tier until death).
 - Death → reset craft to **last checkpoint** (v1: world origin / start only) **inside the same sortie**; distance and kills for the run keep accumulating. Only **Return to hangar** ends the run and calls `run/end`.
 - **Starter gun** (space, mode basic): always available, unlimited, no carry cost. Teaches movement and shooting without economy friction.

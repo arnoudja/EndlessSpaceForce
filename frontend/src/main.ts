@@ -206,7 +206,7 @@ el.btnLaunch.addEventListener("click", () => {
         distance: stats.distance,
         kills: stats.kills,
         died: stats.died,
-        upgrade_level: stats.died ? 0 : stats.upgrade_level,
+        upgrade_level: stats.died ? 0 : stats.upgradeLevel,
         basic_left: stats.basicLeft,
         vector_left: stats.vectorLeft,
       });

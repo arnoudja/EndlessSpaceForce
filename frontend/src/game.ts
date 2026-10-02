@@ -27,11 +27,22 @@ interface Bullet {
   vector: boolean;
 }
 
+interface HostileBullet {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  damage: number;
+}
+
 interface Enemy {
   x: number;
   y: number;
   vy: number;
+  vx: number;
   hp: number;
+  fireCooldown: number;
+  canShoot: boolean;
 }
 
 interface Pickup {
@@ -51,6 +62,7 @@ export class Game {
   private hp = 100;
   private maxHp = 100;
   private bullets: Bullet[] = [];
+  private hostileBullets: HostileBullet[] = [];
   private enemies: Enemy[] = [];
   private pickups: Pickup[] = [];
   private kills = 0;
@@ -67,6 +79,7 @@ export class Game {
   private onEnd: (stats: RunStats) => void;
   private raf = 0;
   private lastTime = 0;
+  private shotsFired = 0;
 
   private readonly onKeyDown = (e: KeyboardEvent) => this.onKey(e, true);
   private readonly onKeyUp = (e: KeyboardEvent) => this.onKey(e, false);
@@ -98,15 +111,16 @@ export class Game {
     this.update(dt);
   }
 
-  /** Test hook: shots fired this sortie (starter + vector + gattler). */
   get bulletsFired(): number {
     return this.shotsFired;
   }
 
-  private shotsFired = 0;
-
   getDistance(): number {
     return this.distance;
+  }
+
+  getHostileBulletCount(): number {
+    return this.hostileBullets.length;
   }
 
   setAmmoMode(mode: AmmoMode) {
@@ -237,8 +251,9 @@ export class Game {
     this.raf = requestAnimationFrame((t) => this.loop(t));
   }
 
-  private difficulty() {
-    return 1 + this.elapsed / 45;
+  /** Primary ramp: distance travelled (easy early, punishing later). */
+  private distanceTier(): number {
+    return 1 + this.distance / 500;
   }
 
   private update(dt: number) {
@@ -247,6 +262,7 @@ export class Game {
     if (this.fireHeld) {
       this.tryFire();
     }
+    const tier = this.distanceTier();
     const speed = 180;
     if (this.keys.up) this.py -= speed * dt;
     if (this.keys.down) this.py += speed * dt;
@@ -255,18 +271,33 @@ export class Game {
     this.px = Math.max(20, Math.min(this.w - 20, this.px));
     this.py = Math.max(80, Math.min(this.h - 20, this.py));
 
-    this.distance += 40 * dt * this.difficulty();
+    this.distance += 30 * dt * tier;
 
     this.spawnTimer -= dt;
-    const diff = this.difficulty();
     if (this.spawnTimer <= 0) {
-      this.spawnTimer = Math.max(0.35, 1.4 - diff * 0.08);
-      this.enemies.push({
-        x: 40 + Math.random() * (this.w - 80),
-        y: -20,
-        vy: 60 + diff * 25,
-        hp: Math.ceil(diff),
-      });
+      this.spawnTimer = Math.max(0.28, 1.35 - tier * 0.12);
+      const count = tier > 2.2 ? 2 : 1;
+      for (let i = 0; i < count; i++) {
+        this.spawnEnemy(tier);
+      }
+    }
+
+    for (const e of this.enemies) {
+      e.y += e.vy * dt;
+      e.x += e.vx * dt;
+      if (e.vx !== 0) {
+        if (e.x < 24 || e.x > this.w - 24) {
+          e.vx *= -1;
+          e.x = Math.max(24, Math.min(this.w - 24, e.x));
+        }
+      }
+      if (e.canShoot) {
+        e.fireCooldown -= dt;
+        if (e.fireCooldown <= 0 && e.y > 30 && e.y < this.py - 20) {
+          this.enemyFire(e, tier);
+          e.fireCooldown = Math.max(0.55, 2.4 - tier * 0.35);
+        }
+      }
     }
 
     for (const b of this.bullets) {
@@ -275,9 +306,13 @@ export class Game {
     }
     this.bullets = this.bullets.filter((b) => b.y > -10 && b.y < this.h + 10);
 
-    for (const e of this.enemies) {
-      e.y += e.vy * dt;
+    for (const hb of this.hostileBullets) {
+      hb.x += hb.vx * dt;
+      hb.y += hb.vy * dt;
     }
+    this.hostileBullets = this.hostileBullets.filter(
+      (hb) => hb.y > -20 && hb.y < this.h + 20 && hb.x > -20 && hb.x < this.w + 20,
+    );
 
     for (const e of this.enemies) {
       for (const b of this.bullets) {
@@ -310,13 +345,49 @@ export class Game {
 
     for (const e of this.enemies) {
       if (Math.abs(e.x - this.px) < 20 && Math.abs(e.y - this.py) < 20) {
-        this.hp -= 35 * dt;
+        this.hp -= 28 * dt;
+      }
+    }
+
+    for (const hb of this.hostileBullets) {
+      if (Math.abs(hb.x - this.px) < 14 && Math.abs(hb.y - this.py) < 14) {
+        this.hp -= hb.damage;
+        hb.y = 9999;
       }
     }
 
     if (this.hp <= 0) {
       this.respawnAtCheckpoint();
     }
+  }
+
+  private spawnEnemy(tier: number) {
+    const strafe = Math.random() < 0.38;
+    const vx = strafe ? (Math.random() < 0.5 ? -1 : 1) * (45 + tier * 12) : 0;
+    const shootChance = Math.min(0.72, 0.22 + this.distance / 2500);
+    this.enemies.push({
+      x: 40 + Math.random() * (this.w - 80),
+      y: -20 - Math.random() * 40,
+      vy: 55 + tier * 22,
+      vx,
+      hp: Math.ceil(tier * (strafe ? 1.1 : 1)),
+      fireCooldown: 0.4 + Math.random() * 0.8,
+      canShoot: Math.random() < shootChance,
+    });
+  }
+
+  private enemyFire(e: Enemy, tier: number) {
+    const dx = this.px - e.x;
+    const dy = this.py - e.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const spd = 95 + tier * 35;
+    this.hostileBullets.push({
+      x: e.x,
+      y: e.y + 12,
+      vx: (dx / len) * spd,
+      vy: (dy / len) * spd,
+      damage: 14 + Math.floor(tier),
+    });
   }
 
   private respawnAtCheckpoint() {
@@ -326,6 +397,7 @@ export class Game {
     this.upgradeLevel = 0;
     this.enemies = [];
     this.bullets = [];
+    this.hostileBullets = [];
     this.pickups = [];
   }
 
@@ -359,14 +431,25 @@ export class Game {
       g.fillRect(p.x - 8, p.y - 8, 16, 16);
     }
 
+    for (const hb of this.hostileBullets) {
+      g.fillStyle = "#e85a4f";
+      g.beginPath();
+      g.arc(hb.x, hb.y, 4, 0, Math.PI * 2);
+      g.fill();
+    }
+
     for (const e of this.enemies) {
-      g.fillStyle = "#c45c3e";
+      g.fillStyle = e.vx !== 0 ? "#a84838" : "#c45c3e";
       g.beginPath();
       g.moveTo(e.x, e.y + 14);
       g.lineTo(e.x - 14, e.y - 10);
       g.lineTo(e.x + 14, e.y - 10);
       g.closePath();
       g.fill();
+      if (e.canShoot) {
+        g.fillStyle = "#f5f0e1";
+        g.fillRect(e.x - 2, e.y + 8, 4, 4);
+      }
     }
 
     for (const b of this.bullets) {

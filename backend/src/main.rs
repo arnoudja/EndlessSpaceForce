@@ -80,13 +80,20 @@ struct ConfigureBody {
     buy_vector: Option<i64>,
 }
 
+fn default_zero_i64() -> i64 {
+    0
+}
+
 #[derive(Debug, Deserialize)]
 struct RunEndBody {
     distance: f64,
     kills: i64,
     died: bool,
+    #[serde(default = "default_zero_i64")]
     upgrade_level: i64,
+    #[serde(default = "default_zero_i64")]
     basic_left: i64,
+    #[serde(default = "default_zero_i64")]
     vector_left: i64,
 }
 
