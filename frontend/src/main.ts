@@ -32,7 +32,7 @@ app.innerHTML = `
       <div class="actions">
         <button type="button" id="btn-cannon">Cannon (free)</button>
         <button type="button" id="btn-gattler">Gattler (40)</button>
-        <button type="button" id="btn-basic">+10 basic (5)</button>
+        <button type="button" id="btn-basic">+10 gattler feed (5)</button>
         <button type="button" id="btn-vector">+10 vector (25)</button>
         <button type="button" id="btn-collect">Collect idle stipend</button>
         <button type="button" id="btn-leave">Leave / snapshot idle</button>
@@ -43,7 +43,7 @@ app.innerHTML = `
   </div>
   <div id="game-section" class="game-wrap hidden">
     <canvas id="game-canvas"></canvas>
-    <p class="hint">Arrows/WASD move · Space fire · 1 basic / 2 vector ammo</p>
+    <p class="hint">Arrows/WASD move · Space starter gun (always) · 2 vector ammo · Gattler uses feed</p>
     <div class="actions" style="justify-content: center; margin-top: 0.75rem">
       <button type="button" id="btn-hangar" class="secondary">Return to hangar</button>
     </div>
@@ -92,7 +92,7 @@ function renderPurses(s: PlayerState) {
     <div class="purse">Pending idle: <strong>${s.pending_idle_credits}</strong></div>
     <div class="purse">Weapon: <strong>${s.player.weapon_kind}</strong></div>
   `;
-  el.carry.textContent = `${s.carry_units_used} / ${s.carry_cap} (basic×1, vector×4)`;
+  el.carry.textContent = `${s.carry_units_used} / ${s.carry_cap} (gattler feed×1, vector×4) — starter gun needs no ammo`;
 }
 
 async function refresh() {
@@ -182,10 +182,6 @@ el.btnLaunch.addEventListener("click", () => {
     setStatus("Load a callsign first.", true);
     return;
   }
-  if (state.player.basic_rounds + state.player.vector_rounds === 0) {
-    setStatus("Buy ammunition before launch.", true);
-    return;
-  }
   const loadout: Loadout = {
     weaponKind: state.player.weapon_kind,
     basicRounds: state.player.basic_rounds,
@@ -193,6 +189,8 @@ el.btnLaunch.addEventListener("click", () => {
     upgradeLevel: state.player.run_upgrade_level,
   };
   el.gameSection.classList.remove("hidden");
+  el.btnLaunch.blur();
+  game?.stop();
   game = new Game(el.canvas, loadout, async (stats) => {
     el.gameSection.classList.add("hidden");
     const cs = callsign();
@@ -208,9 +206,7 @@ el.btnLaunch.addEventListener("click", () => {
       });
       renderPurses(state);
       setStatus(
-        stats.died
-          ? `Destroyed at checkpoint start. +resources from run. Upgrade cleared.`
-          : `Returned from sortie. Distance ${stats.distance}, kills ${stats.kills}.`,
+        `Returned from sortie. Distance ${stats.distance}, kills ${stats.kills}.`,
       );
     } catch (e) {
       setStatus((e as Error).message, true);

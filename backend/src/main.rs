@@ -130,7 +130,7 @@ fn init_db(conn: &Connection) -> Result<(), rusqlite::Error> {
             resources INTEGER NOT NULL DEFAULT 0,
             idle_credits INTEGER NOT NULL DEFAULT 0,
             weapon_kind TEXT NOT NULL DEFAULT 'cannon',
-            basic_rounds INTEGER NOT NULL DEFAULT 30,
+            basic_rounds INTEGER NOT NULL DEFAULT 0,
             vector_rounds INTEGER NOT NULL DEFAULT 0,
             run_upgrade_level INTEGER NOT NULL DEFAULT 0,
             checkpoint TEXT NOT NULL DEFAULT 'start',

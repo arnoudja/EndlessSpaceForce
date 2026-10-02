@@ -41,6 +41,7 @@ interface Pickup {
 
 export class Game {
   private ctx: CanvasRenderingContext2D;
+  private canvas: HTMLCanvasElement;
   private w = 480;
   private h = 640;
   private running = false;
@@ -66,6 +67,9 @@ export class Game {
   private raf = 0;
   private lastTime = 0;
 
+  private readonly onKeyDown = (e: KeyboardEvent) => this.onKey(e, true);
+  private readonly onKeyUp = (e: KeyboardEvent) => this.onKey(e, false);
+
   constructor(
     canvas: HTMLCanvasElement,
     loadout: Loadout,
@@ -74,15 +78,27 @@ export class Game {
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("no canvas context");
     this.ctx = ctx;
+    this.canvas = canvas;
     canvas.width = this.w;
     canvas.height = this.h;
+    canvas.tabIndex = 0;
     this.weaponKind = loadout.weaponKind;
     this.basicLeft = loadout.basicRounds;
     this.vectorLeft = loadout.vectorRounds;
     this.upgradeLevel = loadout.upgradeLevel;
     this.onEnd = onEnd;
-    window.addEventListener("keydown", (e) => this.onKey(e, true));
-    window.addEventListener("keyup", (e) => this.onKey(e, false));
+    window.addEventListener("keydown", this.onKeyDown);
+    window.addEventListener("keyup", this.onKeyUp);
+  }
+
+  /** Test hook: advance simulation without rendering. */
+  tick(dt: number, fireStarter = false) {
+    if (fireStarter) this.fireStarterGun();
+    this.update(dt);
+  }
+
+  getDistance(): number {
+    return this.distance;
   }
 
   setAmmoMode(mode: AmmoMode) {
@@ -91,12 +107,15 @@ export class Game {
 
   start() {
     this.running = true;
+    this.canvas.focus();
     this.loop(0);
   }
 
   stop() {
     this.running = false;
     cancelAnimationFrame(this.raf);
+    window.removeEventListener("keydown", this.onKeyDown);
+    window.removeEventListener("keyup", this.onKeyUp);
   }
 
   returnToHangar() {
@@ -104,6 +123,8 @@ export class Game {
   }
 
   private onKey(e: KeyboardEvent, down: boolean) {
+    if (!this.running) return;
+
     const map: Record<string, keyof Keys> = {
       ArrowUp: "up",
       ArrowDown: "down",
@@ -119,45 +140,74 @@ export class Game {
       e.preventDefault();
       this.keys[k] = down;
     }
-    if (down && e.key === " ") this.tryFire();
-    if (down && e.key === "1") this.ammoMode = "basic";
-    if (down && e.key === "2") this.ammoMode = "vector";
+    if (down && e.key === " ") {
+      e.preventDefault();
+      this.tryFire();
+    }
+    if (down && e.key === "1") {
+      e.preventDefault();
+      this.ammoMode = "basic";
+    }
+    if (down && e.key === "2") {
+      e.preventDefault();
+      this.ammoMode = "vector";
+    }
   }
 
   private tryFire() {
     if (this.fireCooldown > 0) return;
-    const vector = this.ammoMode === "vector";
-    if (vector) {
+    if (this.ammoMode === "vector") {
       if (this.vectorLeft <= 0) return;
       this.vectorLeft -= 1;
-    } else {
-      if (this.basicLeft <= 0) return;
-      this.basicLeft -= 1;
+      this.fireVectorShot();
+      return;
     }
-    const rate = this.weaponKind === "gattler" ? 0.12 : 0.22;
-    this.fireCooldown = rate;
-    const baseDmg = vector ? 3 : 1;
-    const dmg = baseDmg + this.upgradeLevel;
-    const speed = vector ? 9 : 7;
-    if (this.weaponKind === "gattler" && !vector) {
-      for (const spread of [-0.15, 0, 0.15]) {
-        this.bullets.push({
-          x: this.px,
-          y: this.py - 12,
-          vx: spread * 4,
-          vy: -speed,
-          damage: dmg,
-          vector,
-        });
-      }
-    } else {
+    if (this.weaponKind === "gattler" && this.basicLeft > 0) {
+      this.basicLeft -= 1;
+      this.fireGattlerVolley();
+      return;
+    }
+    this.fireStarterGun();
+  }
+
+  private fireStarterGun() {
+    this.fireCooldown = 0.22;
+    const dmg = 1 + this.upgradeLevel;
+    this.bullets.push({
+      x: this.px,
+      y: this.py - 12,
+      vx: 0,
+      vy: -7,
+      damage: dmg,
+      vector: false,
+    });
+  }
+
+  private fireVectorShot() {
+    this.fireCooldown = 0.28;
+    const dmg = 3 + this.upgradeLevel;
+    this.bullets.push({
+      x: this.px,
+      y: this.py - 12,
+      vx: 0,
+      vy: -9,
+      damage: dmg,
+      vector: true,
+    });
+  }
+
+  private fireGattlerVolley() {
+    this.fireCooldown = 0.12;
+    const dmg = 1 + this.upgradeLevel;
+    const speed = 7;
+    for (const spread of [-0.15, 0, 0.15]) {
       this.bullets.push({
         x: this.px,
         y: this.py - 12,
-        vx: 0,
+        vx: spread * 4,
         vy: -speed,
         damage: dmg,
-        vector,
+        vector: false,
       });
     }
   }
@@ -257,7 +307,7 @@ export class Game {
     this.upgradeLevel = 0;
     this.enemies = [];
     this.bullets = [];
-    this.finish(true);
+    this.pickups = [];
   }
 
   private finish(died: boolean) {
@@ -318,7 +368,11 @@ export class Game {
     g.fillText(`dist ${Math.floor(this.distance)}`, 8, 18);
     g.fillText(`kills ${this.kills}`, 8, 34);
     g.fillText(`upg ${this.upgradeLevel}`, 8, 50);
-    g.fillText(`ammo ${this.ammoMode} B${this.basicLeft} V${this.vectorLeft}`, 8, 66);
+    g.fillText(
+      `mode ${this.ammoMode} · feed ${this.basicLeft} · vector ${this.vectorLeft}`,
+      8,
+      66,
+    );
     g.fillStyle = "#c45c3e";
     g.fillRect(8, 72, 100, 6);
     g.fillStyle = "#b8860b";
